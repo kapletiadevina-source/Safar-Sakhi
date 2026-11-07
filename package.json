@@ -1,0 +1,19 @@
+{
+  "name": "safar-sakhi",
+  "version": "1.0.0",
+  "description": "Safar Sakhi – AI-Powered Women's Safety & Smart Journey Platform",
+  "private": true,
+  "scripts": {
+    "start:backend": "npm start --prefix backend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "prisma:generate": "npm run prisma:generate --prefix backend",
+    "prisma:push": "npm run prisma:push --prefix backend",
+    "prisma:seed": "npm run prisma:seed --prefix backend"
+  },
+  "keywords": ["womens-safety", "smart-journey", "sos", "gemini-ai", "leaflet", "socketio"],
+  "author": "Safar Sakhi Team",
+  "license": "ISC"
+}
+

@@ -1,0 +1,226 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  FAMILY
+  ADMIN
+}
+
+enum JourneyStatus {
+  NOT_STARTED
+  ACTIVE
+  PAUSED
+  DELAYED
+  COMPLETED
+  CANCELLED
+  EMERGENCY
+}
+
+enum SOStatus {
+  ACTIVE
+  RESOLVED
+  CANCELLED
+  FALSE_ALARM
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  password            String
+  fullName            String
+  phoneNumber         String
+  role                Role                 @default(USER)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  profile             UserProfile?
+  contacts            TrustedContact[]
+  journeys            Journey[]
+  locations           JourneyLocation[]
+  sosIncidents        SOSIncident[]
+  notifications       Notification[]
+  settings            UserSettings?
+  safetyConfirmations SafetyConfirmation[]
+
+  travelerConnections FamilyConnection[]   @relation("TravelerConnections")
+  familyConnections   FamilyConnection[]   @relation("FamilyMemberConnections")
+
+  @@index([email])
+  @@index([role])
+}
+
+model UserProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatar         String?
+  emergencyNotes String?
+  bloodGroup     String?
+  homeAddress    String?
+  homeLatitude   Float?
+  homeLongitude  Float?
+  workAddress    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model TrustedContact {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  phoneNumber  String
+  email        String?
+  relationship String
+  isPrimary    Boolean  @default(false)
+  isVerified   Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model FamilyConnection {
+  id             String   @id @default(uuid())
+  travelerId     String
+  traveler       User     @relation("TravelerConnections", fields: [travelerId], references: [id], onDelete: Cascade)
+  familyMemberId String?
+  familyMember   User?    @relation("FamilyMemberConnections", fields: [familyMemberId], references: [id], onDelete: SetNull)
+  email          String
+  name           String?
+  relationship   String   @default("Family")
+  status         String   @default("ACCEPTED") // PENDING, ACCEPTED, REJECTED
+  invitationCode String   @unique @default(uuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([travelerId])
+  @@index([familyMemberId])
+  @@index([email])
+}
+
+model Journey {
+  id                   String               @id @default(uuid())
+  userId               String
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                String?
+  startLocation        String
+  startLatitude        Float?
+  startLongitude       Float?
+  destination          String
+  destinationLatitude   Float?
+  destinationLongitude  Float?
+  expectedArrivalTime  DateTime
+  originalEta          DateTime?
+  startTime            DateTime             @default(now())
+  endTime              DateTime?
+  status               JourneyStatus        @default(ACTIVE)
+  journeyType          String               @default("CAB")
+  notes                String?
+  trackingToken        String               @unique @default(uuid())
+  sharedContactIds     String?              // Stored as JSON string
+  sharedFamilyIds      String?              // Stored as JSON string of authorized family user IDs
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  locations            JourneyLocation[]
+  sosIncidents         SOSIncident[]
+  safetyConfirmations  SafetyConfirmation[]
+
+  @@index([userId])
+  @@index([trackingToken])
+  @@index([status])
+}
+
+model JourneyLocation {
+  id           String   @id @default(uuid())
+  journeyId    String
+  journey      Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude     Float
+  longitude    Float
+  accuracy     Float?
+  speed        Float?
+  heading      Float?
+  batteryLevel Float?
+  timestamp    DateTime @default(now())
+
+  @@index([journeyId])
+  @@index([timestamp])
+}
+
+model SOSIncident {
+  id                         String    @id @default(uuid())
+  userId                     String
+  user                       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journeyId                  String?
+  journey                    Journey?  @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  status                     SOStatus  @default(ACTIVE)
+  latitude                   Float?
+  longitude                  Float?
+  accuracy                   Float?
+  triggerType                String    @default("MANUAL")
+  emergencyPhrase            String?
+  notificationDeliveryStatus String?   // JSON representation
+  resolvedAt                 DateTime?
+  resolutionNotes            String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SafetyConfirmation {
+  id          String   @id @default(uuid())
+  journeyId   String
+  journey     Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  confirmedAt DateTime @default(now())
+  message     String?
+  latitude    Float?
+  longitude   Float?
+
+  @@index([journeyId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journeyId String?
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  metadata  String?  // JSON string
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model UserSettings {
+  id                       String   @id @default(uuid())
+  userId                   String   @unique
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emergencyPhrase          String   @default("Sakhi Help")
+  voiceTriggerEnabled      Boolean  @default(true)
+  voiceFeedbackEnabled     Boolean  @default(true)
+  delayGracePeriodMinutes  Int      @default(5)
+  locationIntervalMinutes  Int      @default(5)
+  shareWithAllContacts     Boolean  @default(true)
+  pushNotificationsEnabled Boolean  @default(true)
+  smsNotificationsEnabled  Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
